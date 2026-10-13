@@ -1,13 +1,6 @@
 name: LokOS State Report Download (manual validation)
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - ".github/workflows/lokos-manual-test.yml"
-      - "lokos_direct_state_download.py"
-      - "requirements.txt"
   workflow_dispatch:
     inputs:
       year:
