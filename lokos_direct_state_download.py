@@ -96,7 +96,7 @@ def save_page_diagnostics(page, out, stage, detail=""):
         logging.exception("Could not save diagnostic screenshot.")
 
     try:
-        body_preview = re.sub(r"\\s+", " ", page.locator("body").inner_text(timeout=5000)).strip()[:1500]
+        body_preview = re.sub(r"\s+", " ", page.locator("body").inner_text(timeout=5000)).strip()[:1500]
     except Exception as exc:
         body_preview = f"<body text unavailable: {exc}>"
 
