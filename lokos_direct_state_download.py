@@ -76,16 +76,52 @@ def select_label(page, selector, label):
         ) from exc
     page.wait_for_timeout(500)
 
-def open_report(page, year, from_month, to_month, bank):
+def save_page_diagnostics(page, out, stage, detail=""):
+    """Save evidence of the actual page when the expected portal controls are missing."""
+    stamp = datetime.now().astimezone().strftime("%Y%m%d_%H%M%S")
+    diag_dir = Path(out) / "diagnostics"
+    diag_dir.mkdir(parents=True, exist_ok=True)
+    stem = f"{slug(stage)}_{stamp}"
+    html_path = diag_dir / f"{stem}.html"
+    screenshot_path = diag_dir / f"{stem}.png"
+
+    try:
+        html_path.write_text(page.content(), encoding="utf-8")
+    except Exception:
+        logging.exception("Could not save diagnostic HTML.")
+
+    try:
+        page.screenshot(path=str(screenshot_path), full_page=True, timeout=15000)
+    except Exception:
+        logging.exception("Could not save diagnostic screenshot.")
+
+    try:
+        body_preview = re.sub(r"\\s+", " ", page.locator("body").inner_text(timeout=5000)).strip()[:1500]
+    except Exception as exc:
+        body_preview = f"<body text unavailable: {exc}>"
+
+    logging.error(
+        "PORTAL DIAGNOSTICS stage=%s url=%s title=%r detail=%s body_preview=%r html=%s screenshot=%s",
+        stage, page.url, page.title(), detail, body_preview, html_path, screenshot_path,
+    )
+
+
+def open_report(page, year, from_month, to_month, bank, out):
     page.goto(URL, wait_until="domcontentloaded", timeout=60000)
-    page.locator(YEAR_SEL).wait_for(state="visible", timeout=30000)
+    try:
+        page.locator(YEAR_SEL).wait_for(state="visible", timeout=30000)
+    except PlaywrightTimeoutError as exc:
+        save_page_diagnostics(page, out, "year_selector_missing", str(exc))
+        raise RuntimeError(
+            f"Year selector {YEAR_SEL} did not appear. "
+            "See output/diagnostics and the PORTAL DIAGNOSTICS log entry for the page response."
+        ) from exc
     select_label(page, YEAR_SEL, year)
     select_label(page, FROM_SEL, from_month)
     select_label(page, TO_SEL, to_month)
     if bank:
         select_label(page, BANK_SEL, bank)
     page.wait_for_timeout(1000)
-
 def get_states(page):
     links = page.locator("#StateWise a[id*='_lbDesc_']")
     if links.count() == 0:
@@ -202,7 +238,7 @@ def main():
         context = browser.new_context(accept_downloads=True)
         page = context.new_page()
         try:
-            open_report(page, args.year, args.from_month, args.to_month, args.bank)
+            open_report(page, args.year, args.from_month, args.to_month, args.bank, out)
             states = get_states(page)
             if args.limit is not None:
                 states = states[:max(0, args.limit)]
@@ -212,7 +248,7 @@ def main():
                 logging.info("[%d/%d] %s", idx, len(states), state)
                 try:
                     # Reload and reapply filters before every state so clicks always start from overview.
-                    open_report(page, args.year, args.from_month, args.to_month, args.bank)
+                    open_report(page, args.year, args.from_month, args.to_month, args.bank, out)
                     click_state(page, state, args.timeout)
                     result = export_and_save(
                         page, state, args.year, args.from_month, args.to_month, out, args.timeout
