@@ -1,24 +1,31 @@
 name: LokOS State Report Download (manual validation)
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/lokos-manual-test.yml"
+      - "lokos_direct_state_download.py"
+      - "requirements.txt"
   workflow_dispatch:
     inputs:
       year:
         description: Financial year label, e.g. 2026-27
         required: true
-        default: '2026-27'
+        default: "2026-27"
       from_month:
         description: From month label, e.g. August
         required: true
-        default: August
+        default: "August"
       to_month:
         description: To month label, e.g. August
         required: true
-        default: August
+        default: "August"
       limit:
         description: Maximum number of state links to process for testing
         required: true
-        default: '1'
+        default: "1"
 
 permissions:
   contents: read
@@ -33,7 +40,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v7
         with:
-          python-version: '3.11'
+          python-version: "3.11"
           cache: pip
       - name: Install dependencies
         run: |
@@ -43,17 +50,21 @@ jobs:
       - name: Run a limited validation download
         env:
           LOKOS_OUTPUT_DIR: output
+          REPORT_YEAR: ${{ inputs.year || '2026-27' }}
+          FROM_MONTH: ${{ inputs.from_month || 'August' }}
+          TO_MONTH: ${{ inputs.to_month || 'August' }}
+          STATE_LIMIT: ${{ inputs.limit || '1' }}
         run: |
           python lokos_direct_state_download.py \
-            --year '${{ inputs.year }}' \
-            --from-month '${{ inputs.from_month }}' \
-            --to-month '${{ inputs.to_month }}' \
-            --limit '${{ inputs.limit }}'
+            --year "$REPORT_YEAR" \
+            --from-month "$FROM_MONTH" \
+            --to-month "$TO_MONTH" \
+            --limit "$STATE_LIMIT"
       - name: Upload run files as workflow artifact
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: lokos-validation-${{ inputs.year }}-${{ inputs.from_month }}-to-${{ inputs.to_month }}
+          name: lokos-validation-${{ inputs.year || '2026-27' }}-${{ inputs.from_month || 'August' }}-to-${{ inputs.to_month || 'August' }}
           path: output/
           if-no-files-found: warn
           retention-days: 30
