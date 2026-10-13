@@ -107,7 +107,8 @@ def save_page_diagnostics(page, out, stage, detail=""):
 
 
 def open_report(page, year, from_month, to_month, bank, out):
-    page.goto(URL, wait_until="domcontentloaded", timeout=60000)
+    response = page.goto(URL, wait_until="domcontentloaded", timeout=60000)
+    logging.info("Portal navigation response status=%s URL=%s", response.status if response else None, page.url)
     try:
         page.locator(YEAR_SEL).wait_for(state="visible", timeout=30000)
     except PlaywrightTimeoutError as exc:
