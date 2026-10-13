@@ -1,1 +1,59 @@
+name: LokOS State Report Download (manual validation)
 
+on:
+  workflow_dispatch:
+    inputs:
+      year:
+        description: Financial year label, e.g. 2026-27
+        required: true
+        default: '2026-27'
+      from_month:
+        description: From month label, e.g. August
+        required: true
+        default: August
+      to_month:
+        description: To month label, e.g. August
+        required: true
+        default: August
+      limit:
+        description: Maximum number of state links to process for testing
+        required: true
+        default: '1'
+
+permissions:
+  contents: read
+
+jobs:
+  download:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          python -m playwright install --with-deps chromium
+      - name: Run a limited validation download
+        env:
+          LOKOS_OUTPUT_DIR: output
+        run: |
+          python lokos_direct_state_download.py \
+            --year '${{ inputs.year }}' \
+            --from-month '${{ inputs.from_month }}' \
+            --to-month '${{ inputs.to_month }}' \
+            --limit '${{ inputs.limit }}'
+      - name: Upload run files as workflow artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lokos-validation-${{ inputs.year }}-${{ inputs.from_month }}-to-${{ inputs.to_month }}
+          path: output/
+          if-no-files-found: warn
+          retention-days: 30
